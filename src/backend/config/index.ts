@@ -1,4 +1,3 @@
-
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -14,6 +13,8 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   encryptionKey: process.env.ENCRYPTION_KEY || 'change-this-in-production',
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  medAlpacaEndpoint: process.env.MEDALPACA_ENDPOINT || 'https://api-inference.huggingface.co/models/medalpaca/medalpaca-7b',
+  huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY || '',
   emailService: {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT || '587', 10),

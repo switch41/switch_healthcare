@@ -1,15 +1,11 @@
 import { Chat, IChat, IMessage } from '../models/chat.model';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
-import OpenAI from 'openai';
+import axios from 'axios';
 import { config } from '../config';
 
-const openai = new OpenAI({
-  apiKey: config.openaiApiKey,
-});
-
 // System prompt for medical assistant
-const SYSTEM_PROMPT = `You are MediAssist, a HIPAA-compliant AI healthcare assistant. Your role is to:
+const SYSTEM_PROMPT = `You are MediAssist, a healthcare assistant. Your role is to:
 1. Assess patient symptoms and concerns
 2. Provide evidence-based medical information
 3. Triage cases based on severity
@@ -184,34 +180,43 @@ export class ChatService {
     }
   }
 
-  // Generate AI response
+  // Generate AI response using Hugging Face API
   private async generateAIResponse(messages: IMessage[]): Promise<IMessage> {
     try {
-      const openaiMessages = messages
+      // Format messages for the model
+      const formattedMessages = messages
         .filter(msg => msg.role !== 'provider')
         .map(msg => ({
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content,
         }));
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          ...openaiMessages,
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
-      });
+      // Prepare the prompt
+      const prompt = [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...formattedMessages,
+      ].map(msg => `${msg.role}: ${msg.content}`).join('\n');
 
-      const response = completion.choices[0].message;
+      // Call Hugging Face API
+      const response = await axios.post(
+        config.medAlpacaEndpoint,
+        { inputs: prompt },
+        {
+          headers: {
+            'Authorization': `Bearer ${config.huggingfaceApiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const aiResponse = response.data[0].generated_text;
       
       // Parse response for medical metadata
-      const metadata = this.extractMedicalMetadata(response.content);
+      const metadata = this.extractMedicalMetadata(aiResponse);
 
       return {
         role: 'assistant',
-        content: response.content,
+        content: aiResponse,
         timestamp: new Date(),
         metadata,
       };

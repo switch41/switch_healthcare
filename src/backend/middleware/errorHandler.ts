@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import { logger } from '../utils/logger';
 
 export class AppError extends Error {
@@ -16,12 +16,12 @@ export class AppError extends Error {
   }
 }
 
-export const errorHandler = (
+export const errorHandler: ErrorRequestHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   if (err instanceof AppError) {
     logger.error('Operational error:', {
       statusCode: err.statusCode,
@@ -29,10 +29,11 @@ export const errorHandler = (
       stack: err.stack,
     });
 
-    return res.status(err.statusCode).json({
+    res.status(err.statusCode).json({
       status: err.status,
       message: err.message,
     });
+    return;
   }
 
   // Handle Mongoose validation errors
@@ -42,10 +43,11 @@ export const errorHandler = (
       stack: err.stack,
     });
 
-    return res.status(400).json({
+    res.status(400).json({
       status: 'fail',
       message: err.message,
     });
+    return;
   }
 
   // Handle Mongoose cast errors (invalid ObjectId)
@@ -55,10 +57,11 @@ export const errorHandler = (
       stack: err.stack,
     });
 
-    return res.status(400).json({
+    res.status(400).json({
       status: 'fail',
       message: 'Invalid ID format',
     });
+    return;
   }
 
   // Handle Mongoose duplicate key errors
@@ -68,10 +71,11 @@ export const errorHandler = (
       stack: err.stack,
     });
 
-    return res.status(400).json({
+    res.status(400).json({
       status: 'fail',
       message: 'Duplicate field value entered',
     });
+    return;
   }
 
   // Handle JWT errors
@@ -81,10 +85,11 @@ export const errorHandler = (
       stack: err.stack,
     });
 
-    return res.status(401).json({
+    res.status(401).json({
       status: 'fail',
       message: 'Invalid token. Please log in again.',
     });
+    return;
   }
 
   if (err.name === 'TokenExpiredError') {
@@ -93,10 +98,11 @@ export const errorHandler = (
       stack: err.stack,
     });
 
-    return res.status(401).json({
+    res.status(401).json({
       status: 'fail',
       message: 'Your token has expired. Please log in again.',
     });
+    return;
   }
 
   // Handle Zod validation errors
@@ -106,11 +112,12 @@ export const errorHandler = (
       stack: err.stack,
     });
 
-    return res.status(400).json({
+    res.status(400).json({
       status: 'fail',
       message: 'Validation error',
       errors: (err as any).errors,
     });
+    return;
   }
 
   // Handle unknown errors
@@ -119,7 +126,7 @@ export const errorHandler = (
     stack: err.stack,
   });
 
-  return res.status(500).json({
+  res.status(500).json({
     status: 'error',
     message: 'Something went wrong',
   });

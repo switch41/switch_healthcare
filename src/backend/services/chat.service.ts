@@ -1,8 +1,9 @@
-import { Chat, IChat, IMessage } from '../models/chat.model';
-import { AppError } from '../middleware/errorHandler';
-import { logger } from '../utils/logger';
+import { AppError } from '../middleware/errorHandler.js';
+import { logger } from '../utils/logger.js';
 import axios from 'axios';
-import { config } from '../config';
+import { config } from '../config/index.js';
+import { supabase } from '../../integrations/supabase/client.js';
+import { HfInference } from '@huggingface/inference';
 
 // System prompt for medical assistant
 const SYSTEM_PROMPT = `You are MediAssist, a healthcare assistant. Your role is to:
@@ -20,92 +21,113 @@ Always:
 - Follow established medical protocols`;
 
 export class ChatService {
-  // Create a new chat
-  async createChat(data: Partial<IChat>): Promise<IChat> {
+  private hf: HfInference;
+  private readonly MODEL_ID = "ContactDoctor/Bio-Medical-Llama-3-8B";
+  private readonly API_URL = 'http://localhost:8000/api';
+
+  constructor() {
+    this.hf = new HfInference(config.huggingfaceApiKey);
+  }
+
+  async generateResponse(message: string): Promise<string> {
     try {
-      const chat = new Chat(data);
-      await chat.save();
-      logger.info('Chat created:', { chatId: chat._id });
-      return chat;
+      const response = await axios.post(`${this.API_URL}/chat`, {
+        message
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000, // 30 second timeout
+      });
+
+      if (!response.data || !response.data.response) {
+        throw new Error('Invalid response format from API');
+      }
+
+      return response.data.response;
+    } catch (error) {
+      logger.error('Error generating response:', error);
+      throw new Error('Failed to generate AI response');
+    }
+  }
+
+  async getAll(): Promise<any[]> {
+    // Implement if needed
+    return [];
+  }
+
+  async getById(id: string): Promise<any> {
+    // Implement if needed
+    return null;
+  }
+
+  async update(id: string, data: any): Promise<any> {
+    // Implement if needed
+    return null;
+  }
+
+  async delete(id: string): Promise<void> {
+    // Implement if needed
+  }
+
+  // Create a new chat
+  async createChat(data: { patientId: string, type: string }): Promise<any> {
+    try {
+      const response = await axios.post(`${this.API_URL}/chat`, {
+        patientId: data.patientId,
+        type: data.type
+      });
+
+      return response.data;
     } catch (error) {
       logger.error('Error creating chat:', error);
-      throw new AppError(500, 'Failed to create chat');
+      throw new Error('Failed to create chat');
     }
   }
 
   // Get chat by ID
-  async getChatById(id: string): Promise<IChat> {
+  async getChatById(id: string): Promise<any> {
     try {
-      const chat = await Chat.findById(id);
-      if (!chat) {
-        throw new AppError(404, 'Chat not found');
-      }
-      return chat;
+      const response = await axios.get(`${this.API_URL}/chat/${id}`);
+      return response.data;
     } catch (error) {
       logger.error('Error getting chat:', error);
-      throw error;
-    }
-  }
-
-  // Update chat
-  async updateChat(id: string, data: Partial<IChat>): Promise<IChat> {
-    try {
-      const chat = await Chat.findByIdAndUpdate(id, data, { new: true, runValidators: true });
-      if (!chat) {
-        throw new AppError(404, 'Chat not found');
-      }
-      return chat;
-    } catch (error) {
-      logger.error('Error updating chat:', error);
-      throw error;
-    }
-  }
-
-  // Delete chat
-  async deleteChat(id: string): Promise<void> {
-    try {
-      const chat = await Chat.findByIdAndDelete(id);
-      if (!chat) {
-        throw new AppError(404, 'Chat not found');
-      }
-    } catch (error) {
-      logger.error('Error deleting chat:', error);
-      throw error;
+      throw new Error('Failed to get chat');
     }
   }
 
   // Add message to chat
-  async addMessage(chatId: string, message: IMessage): Promise<IChat> {
+  async addMessage(chatId: string, message: { content: string, role: string, userId: string }): Promise<any> {
     try {
-      const chat = await Chat.findById(chatId);
-      if (!chat) {
-        throw new AppError(404, 'Chat not found');
-      }
+      const response = await axios.post(`${this.API_URL}/chat/${chatId}/message`, {
+        content: message.content,
+        role: message.role,
+        userId: message.userId
+      });
 
-      chat.messages.push(message);
-      await chat.save();
-
-      // If the message is from the user, generate an AI response
-      if (message.role === 'user') {
-        const aiResponse = await this.generateAIResponse(chat.messages);
-        chat.messages.push(aiResponse);
-        await chat.save();
-      }
-
-      return chat;
+      return response.data;
     } catch (error) {
       logger.error('Error adding message:', error);
-      throw error;
+      throw new Error('Failed to add message');
     }
   }
 
   // Get chat history for a patient
-  async getPatientHistory(patientId: string, filters: any = {}): Promise<IChat[]> {
+  async getPatientHistory(patientId: string, filters: any = {}): Promise<any[]> {
     try {
-      const query = { patient: patientId, ...filters };
-      return await Chat.find(query)
-        .sort({ lastMessageAt: -1 })
-        .exec();
+      let query = supabase
+        .from('chat_history')
+        .select('*')
+        .eq('user_id', patientId)
+        .order('timestamp', { ascending: false });
+
+      if (filters.type) {
+        query = query.eq('message_type', filters.type);
+      }
+
+      const { data: chats, error } = await query;
+      if (error) throw error;
+      return chats || [];
     } catch (error) {
       logger.error('Error getting patient history:', error);
       throw error;
@@ -113,12 +135,16 @@ export class ChatService {
   }
 
   // Get chats by type
-  async getChatsByType(type: string, filters: any = {}): Promise<IChat[]> {
+  async getChatsByType(type: string, filters: any = {}): Promise<any[]> {
     try {
-      const query = { type, ...filters };
-      return await Chat.find(query)
-        .sort({ lastMessageAt: -1 })
-        .exec();
+      const { data: chats, error } = await supabase
+        .from('chat_history')
+        .select('*')
+        .eq('message_type', type)
+        .order('timestamp', { ascending: false });
+
+      if (error) throw error;
+      return chats || [];
     } catch (error) {
       logger.error('Error getting chats by type:', error);
       throw error;
@@ -128,52 +154,65 @@ export class ChatService {
   // Get chat analytics for a patient
   async getPatientAnalytics(patientId: string, startDate?: Date, endDate?: Date): Promise<any> {
     try {
-      const match: any = { patient: patientId };
-      if (startDate || endDate) {
-        match.lastMessageAt = {};
-        if (startDate) match.lastMessageAt.$gte = startDate;
-        if (endDate) match.lastMessageAt.$lte = endDate;
-      }
+      const { data: chats, error } = await supabase
+        .from('chat_history')
+        .select('*')
+        .eq('user_id', patientId)
+        .eq('message_type', 'text')
+        .order('timestamp', { ascending: false });
 
-      const analytics = await Chat.aggregate([
-        { $match: match },
-        {
-          $group: {
-            _id: {
-              type: '$type',
-              date: { $dateToString: { format: '%Y-%m-%d', date: '$lastMessageAt' } }
-            },
-            count: { $sum: 1 },
-            messageCount: { $sum: { $size: '$messages' } },
-            avgResponseTime: {
-              $avg: {
-                $subtract: [
-                  { $arrayElemAt: ['$messages.timestamp', -1] },
-                  { $arrayElemAt: ['$messages.timestamp', 0] }
-                ]
-              }
-            }
-          }
-        },
-        {
-          $group: {
-            _id: '$_id.type',
-            dailyStats: {
-              $push: {
-                date: '$_id.date',
-                count: '$count',
-                messageCount: '$messageCount',
-                avgResponseTime: '$avgResponseTime'
-              }
-            },
-            totalChats: { $sum: '$count' },
-            totalMessages: { $sum: '$messageCount' },
-            avgResponseTime: { $avg: '$avgResponseTime' }
+      if (error) throw error;
+      if (!chats) return { dailyStats: [], totalChats: 0, totalMessages: 0, avgResponseTime: 0 };
+
+      const dailyStats: Record<string, { count: number; messageCount: number; avgResponseTime: number }> = {};
+      let totalMessages = 0;
+      let totalResponseTime = 0;
+
+      chats.forEach((chat: any) => {
+        const date = chat.timestamp.split('T')[0];
+        if (!dailyStats[date]) {
+          dailyStats[date] = {
+            count: 0,
+            messageCount: 0,
+            avgResponseTime: 0
+          };
+        }
+        dailyStats[date].count += 1;
+        dailyStats[date].messageCount += 1;
+        totalMessages += 1;
+
+        const time = new Date(chat.timestamp);
+        if (chat.sender === 'assistant') {
+          const prevChat = chats.find((c: any) => 
+            c.sender === 'user' && 
+            new Date(c.timestamp) < time
+          );
+          if (prevChat) {
+            const responseTime = time.getTime() - new Date(prevChat.timestamp).getTime();
+            dailyStats[date].avgResponseTime += responseTime;
+            totalResponseTime += responseTime;
           }
         }
-      ]);
+      });
 
-      return analytics;
+      // Calculate averages
+      Object.values(dailyStats).forEach(stats => {
+        if (stats.messageCount > 0) {
+          stats.avgResponseTime = stats.avgResponseTime / stats.messageCount;
+        }
+      });
+
+      return {
+        dailyStats: Object.entries(dailyStats).map(([date, stats]) => ({
+          date,
+          count: stats.count,
+          messageCount: stats.messageCount,
+          avgResponseTime: stats.avgResponseTime
+        })),
+        totalChats: Object.keys(dailyStats).length,
+        totalMessages,
+        avgResponseTime: totalMessages > 0 ? totalResponseTime / totalMessages : 0
+      };
     } catch (error) {
       logger.error('Error getting patient analytics:', error);
       throw error;
@@ -181,7 +220,7 @@ export class ChatService {
   }
 
   // Generate AI response using Hugging Face API
-  private async generateAIResponse(messages: IMessage[]): Promise<IMessage> {
+  private async generateAIResponse(messages: { content: string, role: string }[]): Promise<{ content: string }> {
     try {
       // Format messages for the model
       const formattedMessages = messages
@@ -197,6 +236,12 @@ export class ChatService {
         ...formattedMessages,
       ].map(msg => `${msg.role}: ${msg.content}`).join('\n');
 
+      logger.info('Sending request to Hugging Face API:', {
+        endpoint: config.medAlpacaEndpoint,
+        promptLength: prompt.length,
+        hasApiKey: !!config.huggingfaceApiKey
+      });
+
       // Call Hugging Face API
       const response = await axios.post(
         config.medAlpacaEndpoint,
@@ -206,58 +251,37 @@ export class ChatService {
             'Authorization': `Bearer ${config.huggingfaceApiKey}`,
             'Content-Type': 'application/json',
           },
+          timeout: 30000, // 30 second timeout
         }
       );
 
+      logger.info('Received response from Hugging Face API:', {
+        status: response.status,
+        hasData: !!response.data,
+        responseLength: response.data?.[0]?.generated_text?.length
+      });
+
+      if (!response.data || !response.data[0]?.generated_text) {
+        throw new Error('Invalid response format from Hugging Face API');
+      }
+
       const aiResponse = response.data[0].generated_text;
       
-      // Parse response for medical metadata
-      const metadata = this.extractMedicalMetadata(aiResponse);
-
       return {
-        role: 'assistant',
         content: aiResponse,
-        timestamp: new Date(),
-        metadata,
       };
-    } catch (error) {
-      logger.error('AI response generation failed:', error);
-      throw new AppError(500, 'Failed to generate AI response');
+    } catch (error: any) {
+      logger.error('AI response generation failed:', {
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        endpoint: config.medAlpacaEndpoint
+      });
+      
+      // Return a fallback response if the API call fails
+      return {
+        content: "I apologize, but I'm having trouble connecting to my medical knowledge base right now. Please try again in a moment or contact your healthcare provider for immediate assistance."
+      };
     }
-  }
-
-  // Extract medical metadata from AI response
-  private extractMedicalMetadata(content: string): any {
-    const metadata: any = {};
-
-    // Extract symptoms (simplified)
-    const symptomMatches = content.match(/symptoms?:?\s*([^.]+)/i);
-    if (symptomMatches) {
-      metadata.symptoms = symptomMatches[1]
-        .split(',')
-        .map((s: string) => s.trim());
-    }
-
-    // Extract severity (simplified)
-    if (content.toLowerCase().includes('emergency')) {
-      metadata.triageLevel = 'emergency';
-      metadata.severity = 9;
-    } else if (content.toLowerCase().includes('urgent')) {
-      metadata.triageLevel = 'urgent';
-      metadata.severity = 7;
-    } else {
-      metadata.triageLevel = 'routine';
-      metadata.severity = 3;
-    }
-
-    // Extract suggested actions
-    const actionMatches = content.match(/recommended actions?:?\s*([^.]+)/i);
-    if (actionMatches) {
-      metadata.suggestedActions = actionMatches[1]
-        .split(',')
-        .map((a: string) => a.trim());
-    }
-
-    return metadata;
   }
 } 

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,7 @@ const AIChat: React.FC = () => {
     },
   ]);
   const [input, setInput] = useState('');
-  const { generateResponse, isLoading, error } = useAI();
+  const { queryAI, isLoading, error } = useAI();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,20 +57,29 @@ const AIChat: React.FC = () => {
     setInput('');
 
     try {
-      const aiResponse = await generateResponse(currentInput);
-      
-      const aiMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: aiResponse.text,
-        sender: 'ai',
-        timestamp: new Date(),
-        confidence: aiResponse.confidence,
-        suggestions: aiResponse.suggestions,
-      };
+      console.log('Sending user message to useAI hook:', currentInput);
+      const aiResponse = await queryAI(currentInput);
+      console.log('Received response from useAI hook:', aiResponse);
 
-      setMessages(prev => [...prev, aiMessage]);
+      if (aiResponse && aiResponse.text) {
+        const aiMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          text: aiResponse.text,
+          sender: 'ai',
+          timestamp: new Date(),
+          confidence: aiResponse.confidence,
+          suggestions: aiResponse.suggestions,
+        };
+
+        console.log('Adding AI message to state:', aiMessage);
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        console.warn('AI response was invalid or empty:', aiResponse);
+        toast.error('Received empty or invalid response from AI.');
+      }
     } catch (err) {
-      toast.error('Failed to get AI response. Please try again.');
+      console.error('Error in AIChat handleSendMessage:', err);
+      toast.error('Failed to get AI response. Please check console for details.');
     }
   };
 
@@ -184,7 +192,7 @@ const AIChat: React.FC = () => {
           <Button
             onClick={handleSendMessage}
             disabled={!input.trim() || isLoading}
-            className="bg-medical-primary hover:bg-medical-accent"
+            className="bg-medical-primary hover:bg-medical-accent text-white"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

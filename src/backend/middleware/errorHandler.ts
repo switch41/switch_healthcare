@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 export class AppError extends Error {
   statusCode: number;
@@ -74,33 +74,6 @@ export const errorHandler: ErrorRequestHandler = (
     res.status(400).json({
       status: 'fail',
       message: 'Duplicate field value entered',
-    });
-    return;
-  }
-
-  // Handle JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    logger.error('JWT error:', {
-      message: err.message,
-      stack: err.stack,
-    });
-
-    res.status(401).json({
-      status: 'fail',
-      message: 'Invalid token. Please log in again.',
-    });
-    return;
-  }
-
-  if (err.name === 'TokenExpiredError') {
-    logger.error('JWT expired:', {
-      message: err.message,
-      stack: err.stack,
-    });
-
-    res.status(401).json({
-      status: 'fail',
-      message: 'Your token has expired. Please log in again.',
     });
     return;
   }

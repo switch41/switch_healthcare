@@ -1,16 +1,14 @@
-
 import { Express } from 'express';
-import { authenticate } from '../middleware/security';
-import { errorHandler } from '../middleware/errorHandler';
-import { logger } from '../utils/logger';
+import { errorHandler } from '../middleware/errorHandler.js';
+import { logger } from '../utils/logger.js';
 
 // Import route modules
-import authRoutes from './auth.routes';
-import { patientRouter } from './patient.router';
-import { medicalRecordRouter } from './medical-record.router';
-import providerRoutes from './provider.routes';
-import chatRoutes from './chat.routes';
-import healthRoutes from './health.routes';
+import authRoutes from './auth.routes.js';
+import { patientRouter } from './patient.router.js';
+import { medicalRecordRouter } from './medical-record.router.js';
+import providerRoutes from './provider.routes.js';
+import chatRoutes from './chat.router.js';
+import healthRoutes from './health.routes.js';
 
 export const setupRoutes = (app: Express) => {
   // Health check endpoint (public)
@@ -19,11 +17,11 @@ export const setupRoutes = (app: Express) => {
   // Auth routes (public)
   app.use('/api/auth', authRoutes);
 
-  // Protected routes - require authentication
-  app.use('/api/patients', authenticate, patientRouter);
-  app.use('/api/medical-records', authenticate, medicalRecordRouter);
-  app.use('/api/providers', authenticate, providerRoutes);
-  app.use('/api/chat', authenticate, chatRoutes);
+  // Protected routes - now public (no authentication)
+  app.use('/api/patients', patientRouter);
+  app.use('/api/medical-records', medicalRecordRouter);
+  app.use('/api/providers', providerRoutes);
+  app.use('/api/chat', chatRoutes);
 
   // Global error handler
   app.use(errorHandler);

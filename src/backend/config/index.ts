@@ -6,25 +6,21 @@ dotenv.config();
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
-  mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/mediassist',
-  jwtSecret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8081',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   encryptionKey: process.env.ENCRYPTION_KEY || 'change-this-in-production',
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
   medAlpacaEndpoint: process.env.MEDALPACA_ENDPOINT || 'https://api-inference.huggingface.co/models/medalpaca/medalpaca-7b',
   huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY || '',
+  supabase: {
+    url: process.env.SUPABASE_URL || 'https://ibtjivkvlsymwxvescei.supabase.co',
+    anonKey: process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlidGppdmt2bHN5bXd4dmVzY2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3NTU0OTQsImV4cCI6MjA2MzMzMTQ5NH0.CH5stGdihNtoYFdtMOiy7o1GXMKPVSY0QFF98dKuFD4',
+  },
   emailService: {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT || '587', 10),
     user: process.env.EMAIL_USER || '',
     pass: process.env.EMAIL_PASS || '',
-  },
-  fhir: {
-    serverUrl: process.env.FHIR_SERVER_URL || 'http://localhost:8080/fhir',
-    clientId: process.env.FHIR_CLIENT_ID || '',
-    clientSecret: process.env.FHIR_CLIENT_SECRET || '',
   },
   hipaa: {
     auditLogLevel: process.env.AUDIT_LOG_LEVEL || 'info',

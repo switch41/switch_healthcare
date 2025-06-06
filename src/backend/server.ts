@@ -6,7 +6,7 @@ import { config } from './config/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { logger } from './utils/logger.js';
 import { setupRoutes } from './routes/index.js';
-import { setupDatabase } from './config/database.js';
+import { initializeDatabase } from './config/database.js';
 import { setupSecurity } from './middleware/security.js';
 
 const app = express();
@@ -45,7 +45,7 @@ app.use(errorHandler);
 // Start server
 const startServer = async () => {
   try {
-    await setupDatabase();
+    await initializeDatabase();
     await setupSecurity();
     
     app.listen(config.port, () => {

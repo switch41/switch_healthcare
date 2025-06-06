@@ -1,11 +1,32 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Activity } from 'lucide-react';
+import { Activity, Loader2 } from 'lucide-react';
+import { useAIModel } from '@/hooks/useAIModel';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const SymptomChecker = () => {
+  const [symptoms, setSymptoms] = useState('');
+  const { queryModel, isLoading, error } = useAIModel();
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!symptoms.trim()) return;
+    
+    const prompt = `Please analyze these symptoms and provide a preliminary assessment: ${symptoms}`;
+    console.log('Submitting symptoms:', symptoms);
+    const response = await queryModel(prompt);
+    console.log('Received AI response:', response);
+    if (response) {
+      setAiResponse(response);
+    }
+  };
+
+  const handleQuickSymptom = (symptom: string) => {
+    setSymptoms(prev => prev ? `${prev}, ${symptom}` : symptom);
+  };
+
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="max-w-4xl mx-auto">
@@ -25,25 +46,71 @@ const SymptomChecker = () => {
             <Input 
               placeholder="E.g. I've had a headache for 3 days and feel dizzy when standing up" 
               className="mb-4"
+              value={symptoms}
+              onChange={(e) => setSymptoms(e.target.value)}
             />
             <div className="grid grid-cols-2 gap-2 mb-4">
-              <Button variant="outline" className="justify-start">
+              <Button 
+                variant="outline" 
+                className="justify-start"
+                onClick={() => handleQuickSymptom('headache')}
+              >
                 Headache
               </Button>
-              <Button variant="outline" className="justify-start">
+              <Button 
+                variant="outline" 
+                className="justify-start"
+                onClick={() => handleQuickSymptom('fever')}
+              >
                 Fever
               </Button>
-              <Button variant="outline" className="justify-start">
+              <Button 
+                variant="outline" 
+                className="justify-start"
+                onClick={() => handleQuickSymptom('cough')}
+              >
                 Cough
               </Button>
-              <Button variant="outline" className="justify-start">
+              <Button 
+                variant="outline" 
+                className="justify-start"
+                onClick={() => handleQuickSymptom('fatigue')}
+              >
                 Fatigue
               </Button>
             </div>
+
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {aiResponse && (
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle className="text-lg">AI Assessment</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-wrap">{aiResponse}</p>
+                </CardContent>
+              </Card>
+            )}
           </CardContent>
           <CardFooter>
-            <Button className="w-full bg-medical-primary hover:bg-medical-primary/90">
-              Check My Symptoms
+            <Button 
+              className="w-full bg-medical-primary hover:bg-medical-primary/90"
+              onClick={handleSubmit}
+              disabled={isLoading || !symptoms.trim()}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                'Check My Symptoms'
+              )}
             </Button>
           </CardFooter>
         </Card>

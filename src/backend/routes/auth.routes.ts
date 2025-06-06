@@ -1,9 +1,6 @@
-
 import { Router } from 'express';
 import { Patient } from '../models/patient.model';
 import { AppError } from '../middleware/errorHandler';
-import jwt from 'jsonwebtoken';
-import { config } from '../config';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -76,22 +73,10 @@ router.post('/register', async (req, res, next) => {
     const patient = new Patient(patientData);
     await patient.save();
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        id: patient._id,
-        email: email,
-        role: 'patient'
-      },
-      config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn }
-    );
-
     logger.info('Patient registered successfully:', { patientId: patient._id });
 
     res.status(201).json({
       status: 'success',
-      token,
       data: {
         patient: {
           id: patient._id,
@@ -127,22 +112,10 @@ router.post('/login', async (req, res, next) => {
     patient.lastLogin = new Date();
     await patient.save();
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        id: patient._id,
-        email: email,
-        role: 'patient'
-      },
-      config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn }
-    );
-
     logger.info('Patient logged in successfully:', { patientId: patient._id });
 
     res.json({
       status: 'success',
-      token,
       data: {
         patient: {
           id: patient._id,
@@ -162,37 +135,6 @@ router.post('/logout', (req, res) => {
     status: 'success',
     message: 'Logged out successfully'
   });
-});
-
-// Get current user
-router.get('/me', async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new AppError(401, 'No token provided');
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, config.jwtSecret) as any;
-
-    const patient = await Patient.findById(decoded.id);
-    if (!patient) {
-      throw new AppError(404, 'Patient not found');
-    }
-
-    res.json({
-      status: 'success',
-      data: {
-        patient: {
-          id: patient._id,
-          name: patient.name[0],
-          email: patient.telecom.find(t => t.system === 'email')?.value
-        }
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
 });
 
 export default router;

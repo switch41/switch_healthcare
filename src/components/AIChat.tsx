@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Bot, User, Sparkles } from 'lucide-react';
+import { Loader2, Send, Bot, User, Sparkles, AlertTriangle, Heart } from 'lucide-react';
 import { useAI } from '@/hooks/useAI';
 import { toast } from 'sonner';
 
@@ -15,20 +15,22 @@ interface ChatMessage {
   timestamp: Date;
   confidence?: number;
   suggestions?: string[];
+  isError?: boolean;
 }
 
 const AIChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      text: 'Hello! I\'m your AI healthcare assistant. How can I help you today? I can provide general health information, help assess symptoms, or answer medication questions.',
+      text: 'Hello! I\'m your Switch Health Care AI assistant powered by Microsoft BioGPT. I can provide professional medical analysis, symptom assessment, and healthcare guidance. How can I help you today?',
       sender: 'ai',
       timestamp: new Date(),
       confidence: 1.0,
       suggestions: [
-        'Tell me about your symptoms',
-        'Medication information',
-        'General health questions',
+        'Describe your symptoms in detail',
+        'Ask about medication interactions',
+        'General health and wellness questions',
+        'Emergency guidance and when to seek care'
       ],
     },
   ]);
@@ -73,13 +75,26 @@ const AIChat: React.FC = () => {
 
         console.log('Adding AI message to state:', aiMessage);
         setMessages(prev => [...prev, aiMessage]);
+
+        if (aiResponse.confidence && aiResponse.confidence < 0.7) {
+          toast.warning("Response confidence is low. Please consult a healthcare professional for important medical decisions.");
+        }
       } else {
         console.warn('AI response was invalid or empty:', aiResponse);
         toast.error('Received empty or invalid response from AI.');
       }
     } catch (err) {
       console.error('Error in AIChat handleSendMessage:', err);
-      toast.error('Failed to get AI response. Please check console for details.');
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 2).toString(),
+        text: `❌ Switch Health Care AI is experiencing technical difficulties. Please try again or contact a healthcare professional if you have urgent medical concerns.\n\n⚠️ For medical emergencies, contact emergency services immediately.`,
+        sender: 'ai',
+        timestamp: new Date(),
+        isError: true,
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+      toast.error('Failed to get AI response. Please try again.');
     }
   };
 
@@ -95,124 +110,146 @@ const AIChat: React.FC = () => {
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-medical-primary" />
-          AI Healthcare Assistant
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="flex-1 flex flex-col gap-4">
-        <ScrollArea ref={scrollRef} className="flex-1 h-96">
-          <div className="space-y-4 pr-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-3 ${
-                  message.sender === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                {message.sender === 'ai' && (
+    <div className="w-full max-w-4xl mx-auto">
+      <Card className="h-[600px] flex flex-col shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-medical-primary to-blue-600 text-white">
+          <CardTitle className="flex items-center gap-2">
+            <Heart className="h-5 w-5" />
+            Switch Health Care - AI Assistant (BioGPT)
+            <Badge variant="secondary" className="ml-auto bg-white/20 text-white">
+              Active
+            </Badge>
+          </CardTitle>
+          <p className="text-blue-100 text-sm">Professional medical analysis powered by Microsoft BioGPT</p>
+        </CardHeader>
+        
+        <CardContent className="flex-1 flex flex-col gap-4 p-4">
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded">
+              <div className="flex items-center">
+                <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />
+                <p className="text-sm text-red-700">
+                  <strong>Connection Issue:</strong> {error}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <ScrollArea ref={scrollRef} className="flex-1 h-96">
+            <div className="space-y-4 pr-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${
+                    message.sender === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  {message.sender === 'ai' && (
+                    <div className="flex-shrink-0 bg-medical-primary/10 rounded-full p-2">
+                      <Bot className="h-4 w-4 text-medical-primary" />
+                    </div>
+                  )}
+                  
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 ${
+                      message.sender === 'user'
+                        ? 'bg-medical-primary text-white'
+                        : message.isError
+                        ? 'bg-red-50 text-red-800 border border-red-200'
+                        : 'bg-gray-50 border'
+                    }`}
+                  >
+                    <div className="text-sm whitespace-pre-wrap">{message.text}</div>
+                    
+                    {message.confidence && message.sender === 'ai' && !message.isError && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge 
+                          variant={message.confidence > 0.8 ? "default" : "secondary"} 
+                          className="text-xs"
+                        >
+                          BioGPT Confidence: {Math.round(message.confidence * 100)}%
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {message.suggestions && message.suggestions.length > 0 && (
+                      <div className="mt-3 space-y-1">
+                        <p className="text-xs font-medium opacity-70">Try asking:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {message.suggestions.map((suggestion, index) => (
+                            <Button
+                              key={index}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-6 px-2"
+                              onClick={() => handleSuggestionClick(suggestion)}
+                            >
+                              {suggestion}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <span className="text-xs opacity-50 mt-2 block">
+                      {message.timestamp.toLocaleTimeString()}
+                    </span>
+                  </div>
+                  
+                  {message.sender === 'user' && (
+                    <div className="flex-shrink-0 bg-medical-primary/10 rounded-full p-2">
+                      <User className="h-4 w-4 text-medical-primary" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {isLoading && (
+                <div className="flex gap-3 justify-start">
                   <div className="flex-shrink-0 bg-medical-primary/10 rounded-full p-2">
                     <Bot className="h-4 w-4 text-medical-primary" />
                   </div>
-                )}
-                
-                <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
-                    message.sender === 'user'
-                      ? 'bg-medical-primary text-white'
-                      : 'bg-gray-100'
-                  }`}
-                >
-                  <p className="text-sm">{message.text}</p>
-                  
-                  {message.confidence && message.sender === 'ai' && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        Confidence: {Math.round(message.confidence * 100)}%
-                      </Badge>
-                    </div>
-                  )}
-                  
-                  {message.suggestions && message.suggestions.length > 0 && (
-                    <div className="mt-3 space-y-1">
-                      <p className="text-xs font-medium opacity-70">Try asking:</p>
-                      {message.suggestions.map((suggestion, index) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          size="sm"
-                          className="mr-2 mb-1 text-xs h-7"
-                          onClick={() => handleSuggestionClick(suggestion)}
-                        >
-                          {suggestion}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                  
-                  <span className="text-xs opacity-50 mt-2 block">
-                    {message.timestamp.toLocaleTimeString()}
-                  </span>
-                </div>
-                
-                {message.sender === 'user' && (
-                  <div className="flex-shrink-0 bg-medical-primary/10 rounded-full p-2">
-                    <User className="h-4 w-4 text-medical-primary" />
+                  <div className="bg-gray-50 border rounded-lg p-3 flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-medical-primary" />
+                    <span className="text-sm">BioGPT is analyzing your symptoms...</span>
                   </div>
-                )}
-              </div>
-            ))}
-            
-            {isLoading && (
-              <div className="flex gap-3 justify-start">
-                <div className="flex-shrink-0 bg-medical-primary/10 rounded-full p-2">
-                  <Bot className="h-4 w-4 text-medical-primary" />
                 </div>
-                <div className="bg-gray-100 rounded-lg p-3 flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">AI is thinking...</span>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
+          </ScrollArea>
+          
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Describe your symptoms, ask about medications, or request health guidance..."
+              disabled={isLoading}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!input.trim() || isLoading}
+              className="bg-medical-primary hover:bg-medical-accent"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-        </ScrollArea>
-        
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask about symptoms, medications, or health concerns..."
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={!input.trim() || isLoading}
-            className="bg-medical-primary hover:bg-medical-accent text-white"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-        
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 p-2 rounded">
-            {error}
-          </p>
-        )}
-        
-        <p className="text-xs text-gray-500 text-center">
-          This AI assistant provides general information only. Always consult healthcare professionals for medical advice.
-        </p>
-      </CardContent>
-    </Card>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+              <div className="text-xs text-yellow-800">
+                <strong>Important:</strong> This AI assistant provides medical analysis using Microsoft BioGPT but is not a substitute for professional healthcare. For medical emergencies, contact emergency services immediately.
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

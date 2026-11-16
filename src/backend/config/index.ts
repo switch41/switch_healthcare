@@ -13,8 +13,8 @@ export const config = {
   medAlpacaEndpoint: process.env.MEDALPACA_ENDPOINT || 'https://api-inference.huggingface.co/models/medalpaca/medalpaca-7b',
   huggingfaceApiKey: process.env.HUGGINGFACE_API_KEY || '',
   supabase: {
-    url: process.env.SUPABASE_URL || 'https://ibtjivkvlsymwxvescei.supabase.co',
-    anonKey: process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlidGppdmt2bHN5bXd4dmVzY2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3NTU0OTQsImV4cCI6MjA2MzMzMTQ5NH0.CH5stGdihNtoYFdtMOiy7o1GXMKPVSY0QFF98dKuFD4',
+    url: process.env.SUPABASE_URL || 'https://nxpbenrachmbgbcjnuhb.supabase.co',
+    anonKey: process.env.SUPABASE_ANON_KEY || 'sb_publishable_BWjcitmVYxjaOJjNptctvw_YetXdWen',
   },
   emailService: {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
